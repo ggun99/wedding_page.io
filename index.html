@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>축의금 & 식권 관리 시스템</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        body {
+            font-family: 'Pretendard', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 pb-12">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <i data-lucide="heart" class="w-6 h-6 text-rose-500 fill-rose-500"></i>
+                <h1 class="text-xl font-bold text-slate-800">축의금 & 식권 명부</h1>
+            </div>
+            <button onclick="exportToCSV()" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2 rounded-lg transition-colors shadow-sm">
+                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                엑셀(CSV) 내보내기
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Left Column: Input Form & Summary -->
+        <div class="lg:col-span-1 space-y-6">
+            
+            <!-- Summary Dashboard -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">현황 요약</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <span class="text-xs text-slate-500 block">총 입력건수</span>
+                        <span id="stat-count" class="text-lg font-bold text-slate-800">0건</span>
+                    </div>
+                    <div class="bg-rose-50 p-3 rounded-xl border border-rose-100">
+                        <span class="text-xs text-rose-600 block">총 축의금</span>
+                        <span id="stat-total-amount" class="text-lg font-bold text-rose-700">0원</span>
+                    </div>
+                    <div class="bg-amber-50 p-3 rounded-xl border border-amber-100">
+                        <span class="text-xs text-amber-600 block">총 배부 식권</span>
+                        <span id="stat-total-coupons" class="text-lg font-bold text-amber-700">0장</span>
+                    </div>
+                    <div class="bg-blue-50 p-3 rounded-xl border border-blue-100">
+                        <span class="text-xs text-blue-600 block">봉투 전달 건수</span>
+                        <span id="stat-envelope-count" class="text-lg font-bold text-blue-700">0건</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Form -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i data-lucide="user-plus" class="w-5 h-5 text-indigo-500"></i>
+                    내역 추가하기
+                </h2>
+
+                <form id="entryForm" onsubmit="handleAddEntry(event)" class="space-y-4">
+                    <!-- 이름 -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">성함 / 관계 <span class="text-rose-500">*</span></label>
+                        <input type="text" id="name" required placeholder="예: 홍길동 (직장동료)" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                    </div>
+
+                    <!-- 금액 -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">축의 금액 (원) <span class="text-rose-500">*</span></label>
+                        <input type="number" id="amount" required step="10000" min="0" placeholder="100000" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                        <div class="flex gap-1 mt-1.5">
+                            <button type="button" onclick="addAmount(50000)" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded">+5만</button>
+                            <button type="button" onclick="addAmount(100000)" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded">+10만</button>
+                            <button type="button" onclick="addAmount(200000)" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded">+20만</button>
+                        </div>
+                    </div>
+
+                    <!-- 식권 수령 여부 및 장수 -->
+                    <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                        <label class="block text-sm font-medium text-slate-700">식권 전달 여부</label>
+                        <div class="flex items-center gap-4">
+                            <label class="flex items-center gap-1.5 text-sm text-slate-700 cursor-pointer">
+                                <input type="radio" name="couponOpt" value="yes" checked onclick="toggleCouponInput(true)" class="text-indigo-600 focus:ring-indigo-500">
+                                식권 수령
+                            </label>
+                            <label class="flex items-center gap-1.5 text-sm text-slate-700 cursor-pointer">
+                                <input type="radio" name="couponOpt" value="no" onclick="toggleCouponInput(false)" class="text-indigo-600 focus:ring-indigo-500">
+                                미수령 (돈봉투만)
+                            </label>
+                        </div>
+
+                        <!-- 식권 수량 입력 -->
+                        <div id="couponCountBox">
+                            <label class="block text-xs font-medium text-slate-500 mb-1">식권 매수</label>
+                            <div class="flex items-center gap-2">
+                                <button type="button" onclick="adjustCoupon(-1)" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 rounded-lg font-bold text-slate-600 hover:bg-slate-100">-</button>
+                                <input type="number" id="coupons" value="1" min="0" class="w-16 text-center px-2 py-1 border border-slate-300 rounded-lg text-sm font-medium">
+                                <button type="button" onclick="adjustCoupon(1)" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 rounded-lg font-bold text-slate-600 hover:bg-slate-100">+</button>
+                                <span class="text-xs text-slate-500">장</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 비고 -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">비고 (선택)</label>
+                        <input type="text" id="memo" placeholder="예: 화환 전달, 대리 납부 등" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                    </div>
+
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        등록하기
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Right Column: List Table -->
+        <div class="lg:col-span-2 space-y-4">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="p-4 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="list" class="w-5 h-5 text-indigo-500"></i>
+                        납부 내역
+                    </h2>
+                    <!-- Search Input -->
+                    <div class="relative w-full sm:w-64">
+                        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
+                        <input type="text" id="searchInput" oninput="renderTable()" placeholder="이름/관계 검색..." class="w-full pl-9 pr-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
+                            <tr>
+                                <th class="py-3 px-4">성함 / 관계</th>
+                                <th class="py-3 px-4">축의금</th>
+                                <th class="py-3 px-4">식권 수령</th>
+                                <th class="py-3 px-4">비고</th>
+                                <th class="py-3 px-4 text-center">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody" class="divide-y divide-slate-100">
+                            <!-- Items will be rendered here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Empty State -->
+                <div id="emptyState" class="hidden p-12 text-center text-slate-400">
+                    <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
+                    <p>등록된 내역이 없습니다.</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // State
+        let entries = JSON.parse(localStorage.getItem('wedding_gifts') || '[]');
+
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // Render Page Data
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            const emptyState = document.getElementById('emptyState');
+            const searchKeyword = document.getElementById('searchInput').value.trim().toLowerCase();
+
+            const filteredEntries = entries.filter(item => 
+                item.name.toLowerCase().includes(searchKeyword) || 
+                (item.memo && item.memo.toLowerCase().includes(searchKeyword))
+            );
+
+            tbody.innerHTML = '';
+
+            if (filteredEntries.length === 0) {
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                
+                filteredEntries.forEach((item) => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-slate-50/80 transition-colors';
+                    
+                    const couponBadge = item.coupons > 0 
+                        ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">${item.coupons}장</span>`
+                        : `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">돈봉투 전달</span>`;
+
+                    tr.innerHTML = `
+                        <td class="py-3 px-4 font-medium text-slate-900">${escapeHtml(item.name)}</td>
+                        <td class="py-3 px-4 text-slate-800 font-semibold">${item.amount.toLocaleString()}원</td>
+                        <td class="py-3 px-4">${couponBadge}</td>
+                        <td class="py-3 px-4 text-slate-500 text-xs">${escapeHtml(item.memo || '-')}</td>
+                        <td class="py-3 px-4 text-center">
+                            <button onclick="deleteEntry(${item.id})" class="text-slate-400 hover:text-rose-600 transition-colors p-1">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            updateStats();
+            lucide.createIcons();
+        }
+
+        // Add Entry
+        function handleAddEntry(e) {
+            e.preventDefault();
+            
+            const nameInput = document.getElementById('name');
+            const amountInput = document.getElementById('amount');
+            const couponsInput = document.getElementById('coupons');
+            const memoInput = document.getElementById('memo');
+            const isCouponSelected = document.querySelector('input[name="couponOpt"]:checked').value === 'yes';
+
+            const newEntry = {
+                id: Date.now(),
+                name: nameInput.value.trim(),
+                amount: parseInt(amountInput.value) || 0,
+                coupons: isCouponSelected ? (parseInt(couponsInput.value) || 0) : 0,
+                memo: memoInput.value.trim(),
+                createdAt: new Date().toLocaleDateString()
+            };
+
+            entries.unshift(newEntry);
+            saveData();
+            renderTable();
+
+            // Reset form
+            nameInput.value = '';
+            amountInput.value = '';
+            memoInput.value = '';
+            document.querySelector('input[name="couponOpt"][value="yes"]').click();
+            couponsInput.value = '1';
+            nameInput.focus();
+        }
+
+        // Delete Entry
+        function deleteEntry(id) {
+            if (confirm('해당 내역을 삭제하시겠습니까?')) {
+                entries = entries.filter(item => item.id !== id);
+                saveData();
+                renderTable();
+            }
+        }
+
+        // Update Summary Stats
+        function updateStats() {
+            const totalAmount = entries.reduce((sum, item) => sum + item.amount, 0);
+            const totalCoupons = entries.reduce((sum, item) => sum + item.coupons, 0);
+            const envelopeCount = entries.filter(item => item.coupons === 0).length;
+
+            document.getElementById('stat-count').textContent = `${entries.length}건`;
+            document.getElementById('stat-total-amount').textContent = `${totalAmount.toLocaleString()}원`;
+            document.getElementById('stat-total-coupons').textContent = `${totalCoupons}장`;
+            document.getElementById('stat-envelope-count').textContent = `${envelopeCount}건`;
+        }
+
+        // Helper: LocalStorage Save
+        function saveData() {
+            localStorage.setItem('wedding_gifts', JSON.stringify(entries));
+        }
+
+        // Helper: Toggle Coupon Input Box
+        function toggleCouponInput(enable) {
+            const box = document.getElementById('couponCountBox');
+            const input = document.getElementById('coupons');
+            if (enable) {
+                box.classList.remove('opacity-40', 'pointer-events-none');
+                input.value = '1';
+            } else {
+                box.classList.add('opacity-40', 'pointer-events-none');
+                input.value = '0';
+            }
+        }
+
+        // Helper: Adjust Coupon Count Button
+        function adjustCoupon(delta) {
+            const input = document.getElementById('coupons');
+            let val = parseInt(input.value) || 0;
+            val = Math.max(0, val + delta);
+            input.value = val;
+        }
+
+        // Helper: Quick Amount Add
+        function addAmount(addVal) {
+            const input = document.getElementById('amount');
+            let current = parseInt(input.value) || 0;
+            input.value = current + addVal;
+        }
+
+        // Helper: HTML Escaping
+        function escapeHtml(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+
+        // Export to Excel (CSV) with UTF-8 BOM
+        function exportToCSV() {
+            if (entries.length === 0) {
+                alert('내보낼 내역이 없습니다.');
+                return;
+            }
+
+            let csvContent = '\uFEFF'; // UTF-8 BOM for Excel Kor
+            csvContent += '성함/관계,축의금(원),식권 수령(장),구분,비고,등록일자\n';
+
+            entries.forEach(item => {
+                const category = item.coupons > 0 ? '식권수령' : '돈봉투전달';
+                const row = [
+                    `"${item.name.replace(/"/g, '""')}"`,
+                    item.amount,
+                    item.coupons,
+                    `"${category}"`,
+                    `"${(item.memo || '').replace(/"/g, '""')}"`,
+                    `"${item.createdAt}"`
+                ];
+                csvContent += row.join(',') + '\n';
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `축의금_명부_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Initial Setup
+        renderTable();
+    </script>
+</body>
+</html>

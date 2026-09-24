@@ -52,9 +52,9 @@
                         <span class="text-xs text-amber-600 block">총 배부 식권</span>
                         <span id="stat-total-coupons" class="text-lg font-bold text-amber-700">0장</span>
                     </div>
-                    <div class="bg-blue-50 p-3 rounded-xl border border-blue-100">
-                        <span class="text-xs text-blue-600 block">봉투 전달 건수</span>
-                        <span id="stat-envelope-count" class="text-lg font-bold text-blue-700">0건</span>
+                    <div class="bg-purple-50 p-3 rounded-xl border border-purple-100">
+                        <span class="text-xs text-purple-600 block">직장동료 건수</span>
+                        <span id="stat-coworker-count" class="text-lg font-bold text-purple-700">0건</span>
                     </div>
                 </div>
             </div>
@@ -67,9 +67,16 @@
                 </h2>
 
                 <form id="entryForm" onsubmit="handleAddEntry(event)" class="space-y-4">
-                    <!-- 이름 -->
+                    <!-- 이름 / 관계 -->
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">성함 / 관계 <span class="text-rose-500">*</span></label>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-sm font-medium text-slate-700">성함 / 관계 <span class="text-rose-500">*</span></label>
+                            <!-- 직장동료 Quick Tag Button -->
+                            <button type="button" onclick="appendCoworkerTag()" class="text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-0.5 rounded-full font-medium transition-colors flex items-center gap-1">
+                                <i data-lucide="briefcase" class="w-3 h-3"></i>
+                                + 직장동료 추가
+                            </button>
+                        </div>
                         <input type="text" id="name" required placeholder="예: 홍길동 (직장동료)" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
                     </div>
 
@@ -132,10 +139,16 @@
                         <i data-lucide="list" class="w-5 h-5 text-indigo-500"></i>
                         납부 내역
                     </h2>
-                    <!-- Search Input -->
-                    <div class="relative w-full sm:w-64">
-                        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
-                        <input type="text" id="searchInput" oninput="renderTable()" placeholder="이름/관계 검색..." class="w-full pl-9 pr-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <!-- Search Input and Filter -->
+                    <div class="flex items-center gap-2 w-full sm:w-auto">
+                        <button onclick="toggleCoworkerFilter()" id="coworkerFilterBtn" class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-medium bg-slate-50 hover:bg-slate-100 text-slate-600 flex items-center gap-1 transition-colors whitespace-nowrap">
+                            <i data-lucide="briefcase" class="w-3.5 h-3.5 text-purple-600"></i>
+                            직장동료만 보기
+                        </button>
+                        <div class="relative w-full sm:w-52">
+                            <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
+                            <input type="text" id="searchInput" oninput="renderTable()" placeholder="이름/관계 검색..." class="w-full pl-9 pr-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
                     </div>
                 </div>
 
@@ -169,9 +182,41 @@
     <script>
         // State
         let entries = JSON.parse(localStorage.getItem('wedding_gifts') || '[]');
+        let filterOnlyCoworker = false;
 
         // Initialize Lucide Icons
         lucide.createIcons();
+
+        // Helper: Add "[직장동료]" to name field
+        function appendCoworkerTag() {
+            const nameInput = document.getElementById('name');
+            let currentVal = nameInput.value.trim();
+
+            if (!currentVal.includes('직장동료')) {
+                if (currentVal === '') {
+                    nameInput.value = '(직장동료)';
+                } else if (currentVal.endsWith(')')) {
+                    nameInput.value = currentVal.replace(/\)$/, ', 직장동료)');
+                } else {
+                    nameInput.value = `${currentVal} (직장동료)`;
+                }
+            }
+            nameInput.focus();
+        }
+
+        // Toggle Co-worker Filter
+        function toggleCoworkerFilter() {
+            filterOnlyCoworker = !filterOnlyCoworker;
+            const btn = document.getElementById('coworkerFilterBtn');
+            if (filterOnlyCoworker) {
+                btn.classList.remove('bg-slate-50', 'text-slate-600', 'border-slate-200');
+                btn.classList.add('bg-purple-600', 'text-white', 'border-purple-600');
+            } else {
+                btn.classList.remove('bg-purple-600', 'text-white', 'border-purple-600');
+                btn.classList.add('bg-slate-50', 'text-slate-600', 'border-slate-200');
+            }
+            renderTable();
+        }
 
         // Render Page Data
         function renderTable() {
@@ -179,10 +224,14 @@
             const emptyState = document.getElementById('emptyState');
             const searchKeyword = document.getElementById('searchInput').value.trim().toLowerCase();
 
-            const filteredEntries = entries.filter(item => 
-                item.name.toLowerCase().includes(searchKeyword) || 
-                (item.memo && item.memo.toLowerCase().includes(searchKeyword))
-            );
+            const filteredEntries = entries.filter(item => {
+                const matchesKeyword = item.name.toLowerCase().includes(searchKeyword) || 
+                                       (item.memo && item.memo.toLowerCase().includes(searchKeyword));
+                const isCoworker = item.name.includes('직장동료') || (item.memo && item.memo.includes('직장동료'));
+                
+                if (filterOnlyCoworker && !isCoworker) return false;
+                return matchesKeyword;
+            });
 
             tbody.innerHTML = '';
 
@@ -195,17 +244,29 @@
                     const tr = document.createElement('tr');
                     tr.className = 'hover:bg-slate-50/80 transition-colors';
                     
+                    const isCoworker = item.name.includes('직장동료') || (item.memo && item.memo.includes('직장동료'));
+
+                    // Highlight Name badge if Co-worker
+                    const nameBadge = isCoworker
+                        ? `<div class="flex items-center gap-1.5 font-medium text-slate-900">
+                             ${escapeHtml(item.name)}
+                             <span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 border border-purple-200">
+                               <i data-lucide="briefcase" class="w-3 h-3"></i> 동료
+                             </span>
+                           </div>`
+                        : `<span class="font-medium text-slate-900">${escapeHtml(item.name)}</span>`;
+
                     const couponBadge = item.coupons > 0 
                         ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">${item.coupons}장</span>`
                         : `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">돈봉투 전달</span>`;
 
                     tr.innerHTML = `
-                        <td class="py-3 px-4 font-medium text-slate-900">${escapeHtml(item.name)}</td>
+                        <td class="py-3 px-4">${nameBadge}</td>
                         <td class="py-3 px-4 text-slate-800 font-semibold">${item.amount.toLocaleString()}원</td>
                         <td class="py-3 px-4">${couponBadge}</td>
                         <td class="py-3 px-4 text-slate-500 text-xs">${escapeHtml(item.memo || '-')}</td>
                         <td class="py-3 px-4 text-center">
-                            <button onclick="deleteEntry(${item.id})" class="text-slate-400 hover:text-rose-600 transition-colors p-1">
+                            <button onclick="deleteEntry(${item.id})" class="text-slate-400 hover:text-rose-600 transition-colors p-1" title="삭제">
                                 <i data-lucide="trash-2" class="w-4 h-4"></i>
                             </button>
                         </td>
@@ -263,12 +324,12 @@
         function updateStats() {
             const totalAmount = entries.reduce((sum, item) => sum + item.amount, 0);
             const totalCoupons = entries.reduce((sum, item) => sum + item.coupons, 0);
-            const envelopeCount = entries.filter(item => item.coupons === 0).length;
+            const coworkerCount = entries.filter(item => item.name.includes('직장동료') || (item.memo && item.memo.includes('직장동료'))).length;
 
             document.getElementById('stat-count').textContent = `${entries.length}건`;
             document.getElementById('stat-total-amount').textContent = `${totalAmount.toLocaleString()}원`;
             document.getElementById('stat-total-coupons').textContent = `${totalCoupons}장`;
-            document.getElementById('stat-envelope-count').textContent = `${envelopeCount}건`;
+            document.getElementById('stat-coworker-count').textContent = `${coworkerCount}건`;
         }
 
         // Helper: LocalStorage Save
@@ -319,15 +380,17 @@
             }
 
             let csvContent = '\uFEFF'; // UTF-8 BOM for Excel Kor
-            csvContent += '성함/관계,축의금(원),식권 수령(장),구분,비고,등록일자\n';
+            csvContent += '성함/관계,축의금(원),식권 수령(장),구분,직장동료여부,비고,등록일자\n';
 
             entries.forEach(item => {
                 const category = item.coupons > 0 ? '식권수령' : '돈봉투전달';
+                const isCoworker = item.name.includes('직장동료') || (item.memo && item.memo.includes('직장동료')) ? 'O' : 'X';
                 const row = [
                     `"${item.name.replace(/"/g, '""')}"`,
                     item.amount,
                     item.coupons,
                     `"${category}"`,
+                    `"${isCoworker}"`,
                     `"${(item.memo || '').replace(/"/g, '""')}"`,
                     `"${item.createdAt}"`
                 ];
